@@ -1,129 +1,19 @@
-import type { Category, SortOption, Torrent } from './data'
-
-export type ProviderStatus = 'available' | 'disabled' | 'error'
-export type ProviderCapability = 'search' | 'feeds' | 'categories'
-export type ProviderError = { providerId: string; message: string }
-export type DiscoveryFeed = 'today' | 'recent' | 'trending' | 'seeded' | 'updated'
-export type ProviderResult = { providerId: string; providerName: string; results: Torrent[]; error?: ProviderError }
-export type SearchFilters = { query: string; category: Category; sort: SortOption; verifiedOnly: boolean; provider: string }
-
-export interface DiscoveryProvider {
-  id: string
-  name: string
-  status: ProviderStatus
-  capabilities: ProviderCapability[]
-  categories: Category[]
-  search(query: string, category?: Category): Promise<Torrent[]>
-  feed(feed: DiscoveryFeed): Promise<Torrent[]>
-}
-
-export type DownloadStatus = 'queued' | 'downloading' | 'paused' | 'stopped' | 'completed' | 'failed'
-
-export interface DownloadTask {
-  id: string
-  torrent: Torrent
-  status: DownloadStatus
-  progress: number
-  downloadSpeed?: string
-  uploadSpeed?: string
-  eta?: string
-  priority: 'low' | 'normal' | 'high'
-  fileSelection?: 'all files' | 'custom (placeholder)'
-  bandwidthLimit?: string
-}
-
-export class DemoDiscoveryProvider implements DiscoveryProvider {
-  id = 'nova-demo'
-  name = 'Nova Demo Provider'
-  status: ProviderStatus = 'available'
-  capabilities: ProviderCapability[] = ['search', 'feeds', 'categories']
-  categories: Category[]
-
-  constructor(private catalog: Torrent[]) {
-    this.categories = [...new Set(catalog.map((item) => item.category))]
-  }
-
-  async search(query: string, category: Category = 'All') {
-    const needle = query.trim().toLowerCase()
-
-    return this.catalog
-      .filter((item) => item.category !== 'Adult' || category === 'Adult')
-      .filter((item) => category === 'All' || item.category === category)
-      .filter((item) => !needle || `${item.title} ${item.category} ${item.tags.join(' ')}`.toLowerCase().includes(needle))
-  }
-
-  async feed(feed: DiscoveryFeed) {
-    const visible = this.catalog.filter((item) => item.category !== 'Adult')
-
-    if (feed === 'seeded' || feed === 'trending') {
-      return [...visible].sort((a, b) => b.seeders - a.seeders)
-    }
-
-    if (feed === 'updated') {
-      return [...visible].sort((a, b) => b.addedAt.localeCompare(a.addedAt))
-    }
-
-    return [...visible].sort((a, b) => b.addedAt.localeCompare(a.addedAt))
-  }
-}
-
-export class ResultAggregator {
-  constructor(private providers: DiscoveryProvider[]) {}
-
-  listProviders() {
-    return this.providers
-  }
-
-  async search(filters: SearchFilters): Promise<{ results: Torrent[]; errors: ProviderError[] }> {
-    const availableProviders = this.providers.filter((provider) => provider.status === 'available')
-    const settled = await Promise.allSettled(
-      availableProviders.map((provider) => provider.search(filters.query, filters.category)),
-    )
-
-    const errors: ProviderError[] = []
-    const unique = new Map<string, Torrent>()
-
-    settled.forEach((outcome, index) => {
-      const provider = availableProviders[index]
-
-      if (outcome.status === 'rejected') {
-        errors.push({
-          providerId: provider.id,
-          message: outcome.reason instanceof Error ? outcome.reason.message : 'Provider request failed'
-        })
-        return
-      }
-
-      outcome.value.forEach((item) => unique.set(item.id, item))
-    })
-
-    let results = [...unique.values()]
-      .filter((item) => !filters.verifiedOnly || item.verified)
-      .filter((item) => !filters.provider || item.providerId === filters.provider)
-
-    if (filters.sort === 'seeders') {
-      results.sort((a, b) => b.seeders - a.seeders)
-    } else if (filters.sort === 'leechers') {
-      results.sort((a, b) => b.leechers - a.leechers)
-    } else if (filters.sort === 'size') {
-      results.sort((a, b) => a.sizeBytes - b.sizeBytes)
-    } else if (filters.sort === 'date') {
-      results.sort((a, b) => b.addedAt.localeCompare(a.addedAt))
-    }
-
-    return { results, errors }
-  }
-}
-
-export class PluginRegistry {
-  private providers = new Map<string, DiscoveryProvider>()
-
-  register(provider: DiscoveryProvider) {
-    this.providers.set(provider.id, provider)
-  }
-
-  list() {
-    return [...this.providers.values()]
-  }
-}
-
+export type Category = 'All' | 'Movies' | 'TV / Series' | 'Music' | 'Games' | 'Software' | 'Books' | 'Other' | 'Adult'
+export type View = 'discover' | 'search' | 'downloads' | 'library' | 'plugins' | 'settings'
+export type SortOption = 'relevance' | 'seeders' | 'leechers' | 'size' | 'date'
+export type Torrent = { id: string; title: string; category: Exclude<Category, 'All'>; sizeBytes: number; size: string; seeders: number; leechers: number; addedAt: string; age: string; provider: string; providerId: string; verified: boolean; description: string; tags: string[] }
+export type Plugin = { id: string; name: string; description: string; version: string; enabled: boolean; kind: string }
+export const categories: Category[] = ['All', 'Movies', 'TV / Series', 'Music', 'Games', 'Software', 'Books', 'Other', 'Adult']
+const demoDate = (daysAgo: number) => new Date(Date.now() - daysAgo * 86400000).toISOString()
+export const demoTorrents: Torrent[] = [
+  { id: 'tn-001', title: 'The Aurora Files — Season 01', category: 'TV / Series', sizeBytes: 5153960755, size: '4.8 GB', seeders: 842, leechers: 38, addedAt: demoDate(0), age: '2h ago', provider: 'Nova Demo', providerId: 'nova-demo', verified: true, description: 'A fictional, public-domain sci-fi anthology for testing TorrentNova discovery flows.', tags: ['1080p', 'HEVC', 'Public domain'] },
+  { id: 'tn-002', title: 'Midnight Transit (Restored)', category: 'Movies', sizeBytes: 2254857830, size: '2.1 GB', seeders: 514, leechers: 12, addedAt: demoDate(0), age: '5h ago', provider: 'Nova Demo', providerId: 'nova-demo', verified: true, description: 'Demo metadata for an original film entry. No real torrent source is contacted.', tags: ['4K', 'Restored', 'CC'] },
+  { id: 'tn-003', title: 'Signal / Noise — Live Sessions', category: 'Music', sizeBytes: 717225984, size: '684 MB', seeders: 207, leechers: 9, addedAt: demoDate(1), age: '1d ago', provider: 'Open Archive Demo', providerId: 'nova-demo', verified: false, description: 'A sample music collection used to exercise search and library states.', tags: ['FLAC', 'Live', 'Audio'] },
+  { id: 'tn-004', title: 'Field Notes for a Small Planet', category: 'Books', sizeBytes: 18874368, size: '18 MB', seeders: 96, leechers: 3, addedAt: demoDate(2), age: '2d ago', provider: 'Nova Demo', providerId: 'nova-demo', verified: true, description: 'A fictional open-license book record for the discovery center.', tags: ['EPUB', 'Open license'] },
+  { id: 'tn-005', title: 'Nebula Toolkit 1.4', category: 'Software', sizeBytes: 132120576, size: '126 MB', seeders: 71, leechers: 7, addedAt: demoDate(3), age: '3d ago', provider: 'Authorized Lab', providerId: 'nova-demo', verified: true, description: 'Placeholder software package from an authorized provider integration.', tags: ['Linux', 'Tools', 'x64'] },
+  { id: 'tn-006', title: 'Cosmic Gardens — Season 02', category: 'TV / Series', sizeBytes: 7838315315, size: '7.3 GB', seeders: 364, leechers: 29, addedAt: demoDate(4), age: '4d ago', provider: 'Nova Demo', providerId: 'nova-demo', verified: false, description: 'Demo series result with realistic-looking but entirely fictional metadata.', tags: ['720p', 'Documentary'] },
+  { id: 'tn-007', title: 'Orbit Runner — Community Build', category: 'Games', sizeBytes: 943718400, size: '900 MB', seeders: 188, leechers: 15, addedAt: demoDate(1), age: '1d ago', provider: 'Nova Demo', providerId: 'nova-demo', verified: true, description: 'A fictional open-source game record for testing category behavior.', tags: ['Linux', 'Open source'] },
+  { id: 'tn-008', title: 'Quiet Weather Patterns', category: 'Other', sizeBytes: 52428800, size: '50 MB', seeders: 42, leechers: 2, addedAt: demoDate(5), age: '5d ago', provider: 'Nova Demo', providerId: 'nova-demo', verified: false, description: 'A fictional miscellaneous demo entry.', tags: ['Dataset', 'CC0'] },
+  { id: 'tn-009', title: 'Afterglow — Mature Demo Record', category: 'Adult', sizeBytes: 209715200, size: '200 MB', seeders: 19, leechers: 4, addedAt: demoDate(6), age: '6d ago', provider: 'Nova Demo', providerId: 'nova-demo', verified: false, description: 'Separated adult-category placeholder. Hidden from default discovery.', tags: ['Restricted'] }
+]
+export const initialPlugins: Plugin[] = [{ id: 'demo', name: 'Nova Demo Provider', description: 'Safe, offline sample catalog for development and demos.', version: '0.2.0', enabled: true, kind: 'Discovery provider' }, { id: 'archive', name: 'Authorized Archive Adapter', description: 'Provider interface placeholder for future lawful integrations.', version: '0.1.0', enabled: false, kind: 'Discovery provider' }]
