@@ -1,18 +1,22 @@
 # TorrentNova
 
-TorrentNova is an original, responsive torrent discovery and media workspace foundation. This milestone is intentionally safe: it uses a local fictional catalog and does not connect to torrent indexes, download peers, or external content sources.
+TorrentNova Phase 2 is an original, responsive discovery workspace using a fictional offline catalog. It does not connect to torrent indexes, peer networks, or external content sources.
 
-## Features in this milestone
+## Implemented
 
-- Vite + React + TypeScript application shell with original Nova branding
+- Vite + React + TypeScript application shell and original Nova branding
 - Responsive desktop/mobile navigation for Discover, Search, Downloads, Library, Plugins, and Settings
 - Dark/light theme toggle
-- Discovery Center with category filters and demo catalog
-- Search results, torrent detail modal, and safe demo download queue
-- Provider and plugin registry interfaces for future lawful/authorized integrations
-- Settings foundation and library/download states
+- Discovery Center feeds: Today's Torrents, Recently Added, Trending, Most Seeded, and Recently Updated
+- Categories: All, Movies, TV / Series, Music, Games, Software, Books, Other, and separated Adult
+- Universal search controls for query, category, sort, provider, and verified status
+- Torrent details with metadata, tags, and clearly labeled files/info-hash/magnet/.torrent placeholders
+- Provider contracts for identity, status, capabilities, categories, search, feeds, and errors
+- Result aggregation with deduplication, attribution, and provider failure isolation
+- Demo download-task architecture covering queued, downloading, paused, stopped, completed, and failed statuses
+- Plugin enable/disable foundation and settings foundation
 
-## Run locally
+## Run
 
 Requires Node.js 18+ and npm.
 
@@ -21,21 +25,21 @@ npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite. For a production build:
+Production smoke build:
 
 ```bash
 npm run build
 npm run preview
 ```
 
+## Safety boundary
+
+Only `Nova Demo Provider` is active. All records are fictional and local. The download queue is a UI/state architecture only; it never opens peer connections or transfers files. Future providers must be opt-in, lawful, authorized, and documented. No DRM, access-control, or authentication bypass functionality is included.
+
 ## Testing
 
-`npm run build` is the current smoke test: it runs TypeScript compilation and creates a production bundle. Manual test coverage should include navigation, theme switching, search/filtering, opening details, adding a demo item to Downloads, and responsive layouts.
+The build command is the current automated smoke test. Manual checks should cover all navigation, theme switching, category filtering including Adult opt-in, search sorting/filter controls, detail placeholders, demo queue states, plugin toggles, and responsive layouts. Automated unit tests remain a follow-up because no test runner dependency was added in this phase.
 
-## Safety and provider model
+## Remaining work
 
-`src/services.ts` defines `DiscoveryProvider`, `DemoDiscoveryProvider`, `DownloadTask`, and `PluginRegistry`. Future integrations should be opt-in, documented, lawful, and restricted to authorized sources. The demo provider is offline and fictional.
-
-## Roadmap
-
-Persistent downloads, real provider permission UX, plugin sandboxing/signing, media playback, durable storage, automated component tests, and an OS-level download engine remain to be built.
+Persistent storage, a real download engine, file selection, bandwidth enforcement, plugin sandboxing/signing, provider authorization UX, media playback, automated component tests, and production accessibility review remain unimplemented.
